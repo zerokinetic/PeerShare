@@ -3,7 +3,9 @@ package peershare.services;
 import peershare.utils.UploadUtils;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
@@ -43,9 +45,38 @@ public class FileSharer {
     }
 
     private static class FileSenderHandler implements Runnable {
+
+        private final Socket clientSocket;
+        private final String filePath;
+
+        public FileSenderHandler(Socket clientSocket, String filePath) {
+            this.clientSocket = clientSocket;
+            this.filePath = filePath;
+        }
+
         @Override
         public void run() {
-            return;
+            try(FileInputStream fis = new FileInputStream(filePath)){
+                OutputStream os = clientSocket.getOutputStream();
+                String fileName = new File(filePath).getName();
+                String header = "Filename: "+fileName+"\n";
+                os.write(header.getBytes());
+
+                byte[] buffer = new byte[4096];
+                int byteRead;
+                while((byteRead = fis.read(buffer)) != -1) {
+                    os.write(buffer, 0, byteRead);
+                }
+                System.out.println("File " + fileName + " sent to " + clientSocket.getInetAddress());
+            } catch (Exception ex) {
+                System.out.println("Error while sending file to client " + ex.getMessage());
+            } finally {
+                try {
+                    clientSocket.close();
+                } catch (Exception ex){
+                    System.out.println("Error closing the socket: " + ex.getMessage());
+                }
+            }
         }
     }
 }
